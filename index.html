@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hueome — Home Color Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #1A1F2E;
+    --navy-light: #252B3B;
+    --navy-mid: #2E3548;
+    --canvas: #F7F3EE;
+    --terracotta: #C4622D;
+    --terracotta-light: #D97B47;
+    --sage: #7A9E7E;
+    --gold: #D4A843;
+    --white: #FFFFFF;
+    --text-main: #F0EDE8;
+    --text-muted: #9AA3B5;
+    --border: rgba(255,255,255,0.08);
+    --panel-w: 340px;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    color: var(--text-main);
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    height: 56px;
+    background: rgba(26,31,46,0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+  }
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem; font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--terracotta); }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; border: none; transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-ghost {
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text-main); border-color: rgba(255,255,255,0.2); }
+  .btn-primary {
+    background: var(--terracotta); color: white;
+  }
+  .btn-primary:hover { background: var(--terracotta-light); }
+  .btn-sage { background: var(--sage); color: white; }
+  .btn-sage:hover { filter: brightness(1.1); }
+
+  /* ── LAYOUT ── */
+  .app {
+    display: flex;
+    height: 100vh;
+    padding-top: 56px;
+  }
+
+  /* ── LEFT PANEL ── */
+  .panel {
+    width: var(--panel-w);
+    min-width: var(--panel-w);
+    background: var(--navy-light);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .panel::-webkit-scrollbar { width: 4px; }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .panel-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-label {
+    font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  /* View toggle */
+  .view-toggle {
+    display: flex; gap: 6px;
+  }
+  .view-btn {
+    flex: 1; padding: 10px 6px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 0.8rem; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'Inter', sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .view-btn svg { width: 20px; height: 20px; }
+  .view-btn.active {
+    background: var(--navy-mid); color: var(--white);
+    border-color: rgba(255,255,255,0.2);
+  }
+
+  /* Surface list */
+  .surface-list { display: flex; flex-direction: column; gap: 6px; }
+  .surface-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: all 0.18s;
+  }
+  .surface-item:hover { background: var(--navy-mid); }
+  .surface-item.active {
+    background: var(--navy-mid);
+    border-color: var(--terracotta);
+  }
+  .surface-swatch {
+    width: 24px; height: 24px; border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .surface-name { font-size: 0.84rem; font-weight: 500; flex: 1; }
+  .surface-hex { font-size: 0.72rem; color: var(--text-muted); font-family: monospace; }
+
+  /* Color picker area */
+  .color-picker-wrap {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .selected-surface-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.05rem; color: var(--white);
+  }
+  .selected-surface-title span { color: var(--terracotta); }
+
+  input[type="color"] {
+    width: 100%; height: 56px;
+    border: none; border-radius: 10px;
+    cursor: pointer; background: none;
+    padding: 2px;
+  }
+  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 8px; }
+  input[type="color"]::-webkit-color-swatch { border: none; border-radius: 8px; }
+
+  /* Palette presets */
+  .palette-row {
+    display: flex; flex-wrap: wrap; gap: 7px;
+  }
+  .palette-chip {
+    width: 28px; height: 28px; border-radius: 6px;
+    cursor: pointer; border: 2px solid transparent;
+    transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .palette-chip:hover { transform: scale(1.15); border-color: rgba(255,255,255,0.4); }
+
+  /* Palette collections */
+  .palette-collection { margin-bottom: 14px; }
+  .collection-name {
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px;
+  }
+
+  /* Share section */
+  .share-box {
+    background: var(--navy-mid);
+    border-radius: 10px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .share-url {
+    font-size: 0.73rem; color: var(--text-muted);
+    word-break: break-all; font-family: monospace;
+    background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 6px;
+    min-height: 36px; line-height: 1.5;
+  }
+  .share-actions { display: flex; gap: 8px; }
+  .share-actions .btn { flex: 1; justify-content: center; font-size: 0.78rem; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--sage); color: white;
+    padding: 10px 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 500;
+    opacity: 0; transition: all 0.3s; z-index: 999;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* View-only banner */
+  .view-banner {
+    background: linear-gradient(90deg, var(--gold), var(--terracotta));
+    padding: 9px 24px; font-size: 0.82rem; font-weight: 500;
+    display: none; align-items: center; justify-content: space-between;
+    gap: 10px;
+  }
+  .view-banner.show { display: flex; }
+
+  /* ── RIGHT CANVAS ── */
+  .canvas {
+    flex: 1;
+    background: var(--canvas);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .canvas-bg-pattern {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(26,31,46,0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .house-wrap {
+    position: relative; z-index: 1;
+    width: min(700px, 96%);
+  }
+  .house-wrap svg {
+    width: 100%; height: auto;
+    filter: drop-shadow(0 24px 60px rgba(26,31,46,0.18));
+    transition: opacity 0.35s;
+  }
+
+  /* SVG surface hover */
+  .clickable-surface {
+    cursor: pointer;
+    transition: filter 0.2s, opacity 0.2s;
+  }
+  .clickable-surface:hover { filter: brightness(1.08); }
+  .clickable-surface.selected { filter: brightness(1.12); stroke-width: 3 !important; }
+
+  /* Canvas labels */
+  .canvas-view-label {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(26,31,46,0.75); backdrop-filter: blur(8px);
+    padding: 6px 14px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 500; color: var(--text-main);
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .surface-tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--navy); color: var(--white);
+    padding: 5px 10px; border-radius: 6px; font-size: 0.75rem;
+    opacity: 0; transition: opacity 0.15s; z-index: 50;
+    white-space: nowrap;
+  }
+  .surface-tooltip.show { opacity: 1; }
+
+  /* Hidden interior/exterior */
+  .house-exterior, .house-interior {
+    transition: opacity 0.4s;
+  }
+
+  @media (max-width: 820px) {
+    :root { --panel-w: 290px; }
+    html, body { overflow: auto; }
+    .app { flex-direction: column; height: auto; overflow: auto; }
+    .panel { width: 100%; min-width: 0; max-height: none; overflow: visible; }
+    .canvas { min-height: 60vw; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Hue<span>ome</span></div>
+  <div class="header-right">
+    <button class="btn btn-ghost" id="resetBtn">↺ Reset</button>
+    <button class="btn btn-primary" id="shareBtn">⬡ Share Design</button>
+  </div>
+</header>
+
+<div class="view-banner" id="viewBanner">
+  <span>👁 Viewing a shared color design — make your own changes and share a new link!</span>
+  <button class="btn btn-primary" id="editMineBtn" style="white-space:nowrap">Edit My Copy</button>
+</div>
+
+<div class="app">
+  <!-- LEFT PANEL -->
+  <div class="panel">
+
+    <!-- View mode -->
+    <div class="panel-section">
+      <div class="panel-label">View</div>
+      <div class="view-toggle">
+        <button class="view-btn active" id="extBtn" onclick="setView('exterior')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5L12 3l9 7.5V21H3V10.5z"/><rect x="9" y="14" width="6" height="7" rx="0.5"/></svg>
+          Exterior
+        </button>
+        <button class="view-btn" id="intBtn" onclick="setView('interior')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="1"/><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Interior
+        </button>
+      </div>
+    </div>
+
+    <!-- Surfaces -->
+    <div class="panel-section">
+      <div class="panel-label">Surfaces</div>
+      <div class="surface-list" id="surfaceList"></div>
+    </div>
+
+    <!-- Color picker -->
+    <div class="panel-section">
+      <div class="panel-label">Color Picker</div>
+      <div class="color-picker-wrap">
+        <div class="selected-surface-title">Editing: <span id="activeSurfaceName">—</span></div>
+        <input type="color" id="colorPicker" value="#C4622D" oninput="onColorPick(this.value)">
+        <div>
+          <div class="panel-label" style="margin-bottom:10px">Curated Palettes</div>
+          <div id="palettesContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share -->
+    <div class="panel-section">
+      <div class="panel-label">Share</div>
+      <div class="share-box">
+        <div style="font-size:0.8rem;color:var(--text-muted)">Generate a shareable link with your current color selections.</div>
+        <div class="share-url" id="shareUrl">Click "Share Design" above to generate a link.</div>
+        <div class="share-actions">
+          <button class="btn btn-primary" onclick="generateShareLink()">Generate Link</button>
+          <button class="btn btn-ghost" id="copyBtn" onclick="copyLink()">Copy</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- RIGHT CANVAS -->
+  <div class="canvas" id="mainCanvas">
+    <div class="canvas-bg-pattern"></div>
+    <div class="canvas-view-label" id="canvasLabel">Exterior View</div>
+
+    <div class="house-wrap" id="houseWrap">
+      <!-- SVG injected by JS -->
+    </div>
+
+    <div class="surface-tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════ */
+let currentView = 'exterior';
+let activeSurface = null;
+let isViewOnly = false;
+
+const EXTERIOR_SURFACES = [
+  { id: 'ext_wall',      label: 'Main Wall',       default: '#E8DDD0', group: 'ext' },
+  { id: 'ext_wall2',     label: 'Side Wall',        default: '#D9CBBF', group: 'ext' },
+  { id: 'ext_roof',      label: 'Roof',             default: '#5C4A3A', group: 'ext' },
+  { id: 'ext_roof2',     label: 'Roof Accent',      default: '#4A3929', group: 'ext' },
+  { id: 'ext_door',      label: 'Front Door',       default: '#3D2B1F', group: 'ext' },
+  { id: 'ext_window',    label: 'Window Frames',    default: '#C4A882', group: 'ext' },
+  { id: 'ext_trim',      label: 'Trim & Fascia',    default: '#F5EEE6', group: 'ext' },
+  { id: 'ext_garage',    label: 'Garage Door',      default: '#BEB5AA', group: 'ext' },
+  { id: 'ext_path',      label: 'Pathway',          default: '#C9BEA8', group: 'ext' },
+  { id: 'ext_grass',     label: 'Lawn',             default: '#7A9E7E', group: 'ext' },
+];
+
+const INTERIOR_SURFACES = [
+  { id: 'int_walls',     label: 'Wall Color',       default: '#F2EBE0', group: 'int' },
+  { id: 'int_ceiling',   label: 'Ceiling',          default: '#FAF7F4', group: 'int' },
+  { id: 'int_floor',     label: 'Floor / Rug',      default: '#C4A882', group: 'int' },
+  { id: 'int_trim',      label: 'Skirting & Trim',  default: '#EDE5DA', group: 'int' },
+  { id: 'int_sofa',      label: 'Sofa',             default: '#8B6F57', group: 'int' },
+  { id: 'int_table',     label: 'Table / Cabinet',  default: '#6B4F3A', group: 'int' },
+  { id: 'int_accent',    label: 'Accent Wall',      default: '#C4622D', group: 'int' },
+  { id: 'int_window',    label: 'Curtains',         default: '#D4C4B0', group: 'int' },
+];
+
+const PALETTES = [
+  { name: 'Warm Nordic', colors: ['#E8DDD0','#C4A882','#5C4A3A','#3D2B1F','#7A9E7E','#D4A843','#F5EEE6','#BEB5AA'] },
+  { name: 'Modern Slate', colors: ['#94A3B8','#475569','#1E293B','#F8FAFC','#CBD5E1','#334155','#64748B','#E2E8F0'] },
+  { name: 'Desert Clay', colors: ['#C4622D','#D97B47','#8B6F57','#E8D5C0','#A0785A','#F2E5D4','#6B4F3A','#B8956A'] },
+  { name: 'Sage Garden', colors: ['#7A9E7E','#4F7A52','#2D5A30','#A8C5AB','#D4E8D5','#3D6B3F','#6B9B6E','#E8F4E8'] },
+  { name: 'Midnight Blue', colors: ['#1A1F2E','#252B3B','#2E3548','#4A5568','#6B7280','#9AA3B5','#C5CAD4','#E8EBF0'] },
+  { name: 'Blush Luxe', colors: ['#E8C4B8','#D4927A','#B5614A','#F5E6E0','#C4927A','#8B4A3A','#F0D0C5','#7A3828'] },
+];
+
+// Initialize colors from all surfaces
+const colors = {};
+[...EXTERIOR_SURFACES, ...INTERIOR_SURFACES].forEach(s => { colors[s.id] = s.default; });
+
+/* ═══════════════════════════════════════════
+   URL / STATE MANAGEMENT
+═══════════════════════════════════════════ */
+function encodeState() {
+  const data = { v: currentView, c: colors };
+  return btoa(encodeURIComponent(JSON.stringify(data)));
+}
+
+function decodeState(encoded) {
+  try {
+    return JSON.parse(decodeURIComponent(atob(encoded)));
+  } catch { return null; }
+}
+
+function generateShareLink() {
+  const hash = encodeState();
+  const url = `${location.origin}${location.pathname}?view=${hash}`;
+  document.getElementById('shareUrl').textContent = url;
+  return url;
+}
+
+function copyLink() {
+  const url = generateShareLink();
+  navigator.clipboard.writeText(url).then(() => showToast('Link copied to clipboard!'));
+}
+
+function loadFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const viewParam = params.get('view');
+  if (!viewParam) return;
+
+  const state = decodeState(viewParam);
+  if (!state) return;
+
+  // Apply colors
+  Object.assign(colors, state.c || {});
+  isViewOnly = true;
+
+  // Show banner
+  document.getElementById('viewBanner').classList.add('show');
+
+  // Set view
+  if (state.v) currentView = state.v;
+}
+
+document.getElementById('editMineBtn').onclick = () => {
+  // Strip the ?view= param so they get a fresh editing session with same colors
+  history.replaceState(null, '', location.pathname);
+  document.getElementById('viewBanner').classList.remove('show');
+  isViewOnly = false;
+  showToast('Now editing your own copy!');
+};
+
+document.getElementById('shareBtn').onclick = () => {
+  const url = generateShareLink();
+  navigator.clipboard.writeText(url).then(() => showToast('Share link copied!')).catch(() => {});
+};
+
+document.getElementById('resetBtn').onclick = () => {
+  [...EXTERIOR_SURFACES, ...INTERIOR_SURFACES].forEach(s => { colors[s.id] = s.default; });
+  renderSurfaces();
+  applyColorsToSvg();
+  showToast('Colors reset to defaults');
+};
+
+/* ═══════════════════════════════════════════
+   UI: SURFACES PANEL
+═══════════════════════════════════════════ */
+function renderSurfaces() {
+  const list = document.getElementById('surfaceList');
+  list.innerHTML = '';
+  const surfaces = currentView === 'exterior' ? EXTERIOR_SURFACES : INTERIOR_SURFACES;
+
+  surfaces.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'surface-item' + (activeSurface === s.id ? ' active' : '');
+    div.innerHTML = `
+      <div class="surface-swatch" style="background:${colors[s.id]}"></div>
+      <span class="surface-name">${s.label}</span>
+      <span class="surface-hex">${colors[s.id]}</span>
+    `;
+    div.onclick = () => selectSurface(s.id);
+    list.appendChild(div);
+  });
+
+  if (activeSurface) {
+    document.getElementById('colorPicker').value = colors[activeSurface] || '#ffffff';
+    const s = [...EXTERIOR_SURFACES, ...INTERIOR_SURFACES].find(x => x.id === activeSurface);
+    if (s) document.getElementById('activeSurfaceName').textContent = s.label;
+  }
+}
+
+function selectSurface(id) {
+  activeSurface = id;
+  const s = [...EXTERIOR_SURFACES, ...INTERIOR_SURFACES].find(x => x.id === id);
+  if (s) {
+    document.getElementById('activeSurfaceName').textContent = s.label;
+    document.getElementById('colorPicker').value = colors[id];
+  }
+  renderSurfaces();
+  highlightSvgSurface(id);
+}
+
+function onColorPick(val) {
+  if (!activeSurface) {
+    const surfaces = currentView === 'exterior' ? EXTERIOR_SURFACES : INTERIOR_SURFACES;
+    if (surfaces.length) selectSurface(surfaces[0].id);
+    else return;
+  }
+  colors[activeSurface] = val;
+  renderSurfaces();
+  applyColorsToSvg();
+}
+
+/* ═══════════════════════════════════════════
+   UI: PALETTES
+═══════════════════════════════════════════ */
+function renderPalettes() {
+  const container = document.getElementById('palettesContainer');
+  container.innerHTML = '';
+  PALETTES.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'palette-collection';
+    row.innerHTML = `<div class="collection-name">${p.name}</div><div class="palette-row"></div>`;
+    const chipRow = row.querySelector('.palette-row');
+    p.colors.forEach(c => {
+      const chip = document.createElement('div');
+      chip.className = 'palette-chip';
+      chip.style.background = c;
+      chip.title = c;
+      chip.onclick = () => {
+        if (!activeSurface) {
+          const surfaces = currentView === 'exterior' ? EXTERIOR_SURFACES : INTERIOR_SURFACES;
+          if (surfaces.length) selectSurface(surfaces[0].id);
+        }
+        if (activeSurface) {
+          colors[activeSurface] = c;
+          document.getElementById('colorPicker').value = c;
+          renderSurfaces();
+          applyColorsToSvg();
+        }
+      };
+      chipRow.appendChild(chip);
+    });
+    container.appendChild(row);
+  });
+}
+
+/* ═══════════════════════════════════════════
+   VIEW SWITCH
+═══════════════════════════════════════════ */
+function setView(v) {
+  currentView = v;
+  activeSurface = null;
+  document.getElementById('activeSurfaceName').textContent = '—';
+  document.getElementById('extBtn').classList.toggle('active', v === 'exterior');
+  document.getElementById('intBtn').classList.toggle('active', v === 'interior');
+  document.getElementById('canvasLabel').textContent = v === 'exterior' ? 'Exterior View' : 'Interior View';
+
+  renderHouse();
+  renderSurfaces();
+}
+
+/* ═══════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+/* ═══════════════════════════════════════════
+   SVG: EXTERIOR HOUSE
+═══════════════════════════════════════════ */
+function buildExteriorSvg() {
+  return `
+<svg viewBox="0 0 700 480" xmlns="http://www.w3.org/2000/svg" id="houseSvg">
+  <defs>
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B8D4E8"/>
+      <stop offset="100%" stop-color="#E8EFF5"/>
+    </linearGradient>
+    <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${colors.ext_grass}"/>
+      <stop offset="100%" stop-color="${hexDarken(colors.ext_grass,20)}"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.18)"/>
+    </filter>
+    <pattern id="brickPat" x="0" y="0" width="18" height="10" patternUnits="userSpaceOnUse">
+      <rect width="18" height="10" fill="${colors.ext_wall}"/>
+      <rect x="0" y="0" width="17" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall,6)}" opacity="0.25"/>
+      <rect x="9" y="5" width="8" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall,6)}" opacity="0.18"/>
+    </pattern>
+    <pattern id="roofTile" x="0" y="0" width="14" height="10" patternUnits="userSpaceOnUse">
+      <rect width="14" height="10" fill="${colors.ext_roof}"/>
+      <path d="M0,5 Q7,0 14,5" fill="${hexLighten(colors.ext_roof,8)}" opacity="0.3"/>
+    </pattern>
+    <pattern id="sideBrick" x="0" y="0" width="18" height="10" patternUnits="userSpaceOnUse">
+      <rect width="18" height="10" fill="${colors.ext_wall2}"/>
+      <rect x="0" y="0" width="17" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall2,8)}" opacity="0.2"/>
+      <rect x="9" y="5" width="8" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall2,8)}" opacity="0.15"/>
+    </pattern>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="700" height="480" fill="url(#skyGrad)"/>
+
+  <!-- Clouds -->
+  <g opacity="0.7">
+    <ellipse cx="100" cy="60" rx="55" ry="18" fill="white"/>
+    <ellipse cx="130" cy="50" rx="35" ry="22" fill="white"/>
+    <ellipse cx="75" cy="55" rx="30" ry="16" fill="white"/>
+    <ellipse cx="560" cy="75" rx="45" ry="15" fill="white"/>
+    <ellipse cx="590" cy="65" rx="30" ry="18" fill="white"/>
+    <ellipse cx="540" cy="70" rx="25" ry="13" fill="white"/>
+  </g>
+
+  <!-- Ground / grass -->
+  <rect x="0" y="370" width="700" height="110" fill="url(#grassGrad)" class="clickable-surface" data-id="ext_grass" onclick="selectSurface('ext_grass')"/>
+
+  <!-- Pathway -->
+  <path d="M300,480 L270,370 L390,370 L360,480 Z" fill="${colors.ext_path}" class="clickable-surface" data-id="ext_path" onclick="selectSurface('ext_path')"/>
+  <line x1="280" y1="400" x2="352" y2="400" stroke="${hexDarken(colors.ext_path,10)}" stroke-width="1" stroke-dasharray="8,5" opacity="0.5"/>
+  <line x1="273" y1="430" x2="347" y2="430" stroke="${hexDarken(colors.ext_path,10)}" stroke-width="1" stroke-dasharray="8,5" opacity="0.5"/>
+
+  <!-- Bushes -->
+  <ellipse cx="85" cy="370" rx="38" ry="22" fill="${hexDarken(colors.ext_grass,15)}"/>
+  <ellipse cx="65" cy="368" rx="25" ry="18" fill="${hexDarken(colors.ext_grass,8)}"/>
+  <ellipse cx="108" cy="368" rx="20" ry="15" fill="${hexDarken(colors.ext_grass,18)}"/>
+  <ellipse cx="615" cy="370" rx="38" ry="22" fill="${hexDarken(colors.ext_grass,15)}"/>
+  <ellipse cx="598" cy="368" rx="22" ry="15" fill="${hexDarken(colors.ext_grass,18)}"/>
+
+  <!-- Trees -->
+  <rect x="148" y="290" width="8" height="80" fill="#8B6F57"/>
+  <ellipse cx="152" cy="268" rx="32" ry="38" fill="${hexDarken(colors.ext_grass,25)}"/>
+  <ellipse cx="152" cy="258" rx="22" ry="28" fill="${hexDarken(colors.ext_grass,15)}"/>
+  <rect x="542" y="300" width="8" height="70" fill="#8B6F57"/>
+  <ellipse cx="546" cy="278" rx="30" ry="35" fill="${hexDarken(colors.ext_grass,25)}"/>
+  <ellipse cx="546" cy="268" rx="20" ry="25" fill="${hexDarken(colors.ext_grass,15)}"/>
+
+  <!-- MAIN HOUSE STRUCTURE -->
+  <g filter="url(#shadow)">
+
+    <!-- Garage section (left) -->
+    <rect x="80" y="230" width="170" height="140" fill="url(#sideBrick)" class="clickable-surface" data-id="ext_wall2" onclick="selectSurface('ext_wall2')"/>
+
+    <!-- Main wall -->
+    <rect x="245" y="185" width="320" height="185" fill="url(#brickPat)" class="clickable-surface" data-id="ext_wall" onclick="selectSurface('ext_wall')"/>
+
+    <!-- Garage roof -->
+    <polygon points="60,234 255,234 255,200 157,165" fill="${colors.ext_roof2}" class="clickable-surface" data-id="ext_roof2" onclick="selectSurface('ext_roof2')"/>
+    <polygon points="60,234 255,234 255,228 157,172" fill="${hexLighten(colors.ext_roof2,8)}" opacity="0.35"/>
+    <!-- Garage roof ridge -->
+    <line x1="157" y1="165" x2="255" y2="200" stroke="${hexDarken(colors.ext_roof2,15)}" stroke-width="2.5"/>
+
+    <!-- Main roof -->
+    <polygon points="225,190 585,190 585,183 405,115 225,183" fill="url(#roofTile)" class="clickable-surface" data-id="ext_roof" onclick="selectSurface('ext_roof')"/>
+    <polygon points="225,190 585,190 585,183 405,115 225,183" fill="${hexLighten(colors.ext_roof,12)}" opacity="0.15"/>
+    <!-- Roof ridge -->
+    <line x1="225" y1="184" x2="405" y2="115" stroke="${hexDarken(colors.ext_roof,20)}" stroke-width="3"/>
+    <line x1="405" y1="115" x2="585" y2="184" stroke="${hexDarken(colors.ext_roof,20)}" stroke-width="3"/>
+    <!-- Fascia / eave trim -->
+    <polygon points="218,189 592,189 585,199 225,199" fill="${colors.ext_trim}" class="clickable-surface" data-id="ext_trim" onclick="selectSurface('ext_trim')"/>
+    <polygon points="55,233 262,233 255,242 62,242" fill="${colors.ext_trim}"/>
+
+    <!-- Chimney -->
+    <rect x="485" y="115" width="32" height="65" fill="${hexDarken(colors.ext_wall,15)}"/>
+    <rect x="480" y="112" width="42" height="8" rx="2" fill="${hexDarken(colors.ext_wall,25)}"/>
+
+    <!-- GARAGE DOOR -->
+    <rect x="95" y="248" width="140" height="110" rx="3" fill="${colors.ext_garage}" class="clickable-surface" data-id="ext_garage" onclick="selectSurface('ext_garage')"/>
+    <!-- Garage panels -->
+    ${[0,1,2,3].map(i=>`<rect x="97" y="${250+i*26}" width="136" height="24" rx="1.5" fill="${hexLighten(colors.ext_garage,6)}" opacity="0.5"/>`).join('')}
+    <!-- Garage door handle -->
+    <rect x="157" y="299" width="20" height="5" rx="2.5" fill="${hexDarken(colors.ext_garage,30)}" opacity="0.8"/>
+    <!-- Garage trim -->
+    <rect x="92" y="245" width="146" height="116" rx="4" fill="none" stroke="${colors.ext_trim}" stroke-width="4"/>
+
+    <!-- FRONT DOOR -->
+    <rect x="340" y="270" width="70" height="100" rx="3" fill="${colors.ext_door}" class="clickable-surface" data-id="ext_door" onclick="selectSurface('ext_door')"/>
+    <!-- Door arch -->
+    <path d="M338,280 Q375,255 412,280" fill="${hexLighten(colors.ext_door,10)}" opacity="0.4"/>
+    <!-- Door panels -->
+    <rect x="346" y="278" width="26" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.25"/>
+    <rect x="378" y="278" width="26" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.25"/>
+    <rect x="346" y="320" width="58" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.2"/>
+    <!-- Door handle -->
+    <circle cx="398" cy="320" r="4" fill="${hexLighten(colors.ext_door,40)}" opacity="0.9"/>
+    <rect x="396" y="315" width="4" height="18" rx="2" fill="${hexLighten(colors.ext_door,35)}" opacity="0.8"/>
+    <!-- Door frame trim -->
+    <rect x="336" y="268" width="78" height="102" rx="4" fill="none" stroke="${colors.ext_trim}" stroke-width="5"/>
+    <!-- Transom window above door -->
+    <rect x="345" y="261" width="60" height="14" rx="2" fill="${hexLighten(colors.ext_window,20)}" opacity="0.6"/>
+    <line x1="375" y1="261" x2="375" y2="275" stroke="${colors.ext_window}" stroke-width="1.5" opacity="0.7"/>
+
+    <!-- WINDOWS -->
+    <!-- Left large window -->
+    ${windowEl(262, 218, 90, 75, colors)}
+    <!-- Right large window -->
+    ${windowEl(455, 218, 90, 75, colors)}
+
+    <!-- Upper gable windows -->
+    ${gableWindowEl(345, 140, 50, 38, colors)}
+    ${gableWindowEl(410, 140, 50, 38, colors)}
+
+    <!-- Garage section window -->
+    ${smallWindowEl(100, 198, 55, 28, colors)}
+    ${smallWindowEl(170, 198, 55, 28, colors)}
+
+  </g>
+
+  <!-- Gutters -->
+  <rect x="224" y="188" width="362" height="6" rx="2" fill="${hexDarken(colors.ext_trim,15)}" opacity="0.6"/>
+
+  <!-- Steps -->
+  <rect x="320" y="365" width="110" height="10" rx="2" fill="${hexDarken(colors.ext_path,15)}"/>
+  <rect x="330" y="358" width="90" height="10" rx="2" fill="${hexDarken(colors.ext_path,10)}"/>
+
+  <!-- Flower beds -->
+  <ellipse cx="250" cy="368" rx="28" ry="8" fill="${hexDarken(colors.ext_grass,20)}" opacity="0.7"/>
+  <ellipse cx="450" cy="368" rx="28" ry="8" fill="${hexDarken(colors.ext_grass,20)}" opacity="0.7"/>
+
+  <!-- Sun -->
+  <circle cx="640" cy="55" r="28" fill="#FFE168" opacity="0.85"/>
+  <circle cx="640" cy="55" r="22" fill="#FFD040"/>
+  ${Array.from({length:8},(_,i)=>{const a=i*45*Math.PI/180; return `<line x1="${640+32*Math.cos(a)}" y1="${55+32*Math.sin(a)}" x2="${640+42*Math.cos(a)}" y2="${55+42*Math.sin(a)}" stroke="#FFD040" stroke-width="3" stroke-linecap="round"/>`}).join('')}
+
+</svg>`;
+}
+
+function windowEl(x, y, w, h, c) {
+  return `
+    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${c.ext_window}"/>
+      <rect x="${x+3}" y="${y+3}" width="${w-6}" height="${h-6}" rx="2" fill="#C8DFF0" opacity="0.7"/>
+      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="3"/>
+      <line x1="${x}" y1="${y+h/2}" x2="${x+w}" y2="${y+h/2}" stroke="${c.ext_window}" stroke-width="2.5"/>
+      <!-- Reflection -->
+      <rect x="${x+5}" y="${y+5}" width="12" height="18" rx="2" fill="white" opacity="0.25"/>
+    </g>`;
+}
+
+function gableWindowEl(x, y, w, h, c) {
+  return `
+    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${c.ext_window}"/>
+      <rect x="${x+2}" y="${y+2}" width="${w-4}" height="${h-4}" rx="1.5" fill="#C8DFF0" opacity="0.65"/>
+      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="2"/>
+      <line x1="${x}" y1="${y+h/2}" x2="${x+w}" y2="${y+h/2}" stroke="${c.ext_window}" stroke-width="1.5"/>
+    </g>`;
+}
+
+function smallWindowEl(x, y, w, h, c) {
+  return `
+    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${c.ext_window}"/>
+      <rect x="${x+2}" y="${y+2}" width="${w-4}" height="${h-4}" rx="1" fill="#C8DFF0" opacity="0.6"/>
+      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="2"/>
+    </g>`;
+}
+
+/* ═══════════════════════════════════════════
+   SVG: INTERIOR HOUSE
+═══════════════════════════════════════════ */
+function buildInteriorSvg() {
+  return `
+<svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg" id="houseSvg">
+  <defs>
+    <linearGradient id="roomLight" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0%" stop-color="${hexLighten(colors.int_walls,8)}" />
+      <stop offset="100%" stop-color="${hexDarken(colors.int_walls,8)}" />
+    </linearGradient>
+    <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${hexLighten(colors.int_floor,15)}"/>
+      <stop offset="100%" stop-color="${colors.int_floor}"/>
+    </linearGradient>
+    <filter id="innerShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="rgba(0,0,0,0.12)"/>
+    </filter>
+    <pattern id="woodFloor" x="0" y="0" width="40" height="12" patternUnits="userSpaceOnUse">
+      <rect width="40" height="12" fill="${colors.int_floor}"/>
+      <rect x="0" y="0" width="39" height="11" rx="0.5" fill="${hexLighten(colors.int_floor,6)}" opacity="0.4"/>
+      <line x1="20" y1="0" x2="20" y2="12" stroke="${hexDarken(colors.int_floor,8)}" stroke-width="0.5" opacity="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- Background / outer wall -->
+  <rect width="700" height="500" fill="${hexDarken(colors.int_walls,30)}"/>
+
+  <!-- Room box - perspective feel -->
+  <!-- Back wall (main) -->
+  <rect x="60" y="50" width="580" height="330" fill="url(#roomLight)" class="clickable-surface" data-id="int_walls" onclick="selectSurface('int_walls')"/>
+
+  <!-- Accent wall panel on left -->
+  <rect x="60" y="50" width="165" height="330" fill="${colors.int_accent}" class="clickable-surface" data-id="int_accent" onclick="selectSurface('int_accent')"/>
+  <!-- Accent wall texture lines -->
+  ${[0,1,2,3,4,5].map(i=>`<line x1="60" y1="${90+i*48}" x2="225" y2="${90+i*48}" stroke="${hexLighten(colors.int_accent,10)}" stroke-width="0.8" opacity="0.35"/>`).join('')}
+
+  <!-- Ceiling -->
+  <rect x="60" y="50" width="580" height="65" fill="${colors.int_ceiling}" class="clickable-surface" data-id="int_ceiling" onclick="selectSurface('int_ceiling')"/>
+  <!-- Ceiling cornice -->
+  <rect x="60" y="110" width="580" height="10" rx="0" fill="${hexDarken(colors.int_ceiling,8)}" opacity="0.4"/>
+
+  <!-- Floor -->
+  <rect x="60" y="380" width="580" height="110" fill="url(#woodFloor)" class="clickable-surface" data-id="int_floor" onclick="selectSurface('int_floor')"/>
+  <!-- Floor shine -->
+  <rect x="60" y="380" width="580" height="15" fill="${hexLighten(colors.int_floor,30)}" opacity="0.3"/>
+
+  <!-- Skirting boards -->
+  <rect x="60" y="374" width="580" height="10" rx="1" fill="${colors.int_trim}" class="clickable-surface" data-id="int_trim" onclick="selectSurface('int_trim')"/>
+  <rect x="60" y="112" width="580" height="8" rx="1" fill="${colors.int_trim}" opacity="0.7"/>
+
+  <!-- Left side wall (perspective) -->
+  <polygon points="0,0 60,50 60,490 0,500" fill="${hexDarken(colors.int_walls,20)}" opacity="0.8"/>
+  <!-- Right side wall -->
+  <polygon points="700,0 640,50 640,490 700,500" fill="${hexDarken(colors.int_walls,25)}" opacity="0.8"/>
+  <!-- Ceiling side -->
+  <polygon points="0,0 60,50 640,50 700,0" fill="${hexDarken(colors.int_ceiling,12)}" opacity="0.5"/>
+  <!-- Floor side -->
+  <polygon points="0,500 60,490 640,490 700,500" fill="${hexDarken(colors.int_floor,25)}" opacity="0.8"/>
+
+  <!-- WINDOW with curtains -->
+  <g class="clickable-surface" data-id="int_window" onclick="selectSurface('int_window')">
+    <!-- Window frame -->
+    <rect x="285" y="90" width="200" height="170" rx="3" fill="${hexDarken(colors.int_walls,5)}" stroke="${colors.int_trim}" stroke-width="8"/>
+    <!-- Glass / sky view -->
+    <rect x="295" y="98" width="182" height="155" rx="1" fill="#C8E8F4" opacity="0.85"/>
+    <!-- Sky in window -->
+    <rect x="295" y="98" width="182" height="70" rx="1" fill="#A8D4EE" opacity="0.5"/>
+    <!-- Sunlight beam -->
+    <polygon points="295,98 477,98 477,170 295,253" fill="white" opacity="0.06"/>
+    <!-- Window cross -->
+    <line x1="386" y1="98" x2="386" y2="253" stroke="${colors.int_trim}" stroke-width="6"/>
+    <line x1="295" y1="175" x2="477" y2="175" stroke="${colors.int_trim}" stroke-width="5"/>
+    <!-- Curtains left -->
+    <path d="M280,78 Q265,160 272,262 L295,262 L295,78 Z" fill="${colors.int_window}" opacity="0.9"/>
+    <path d="M280,78 Q270,140 275,200" fill="${hexLighten(colors.int_window,15)}" opacity="0.5"/>
+    <!-- Curtains right -->
+    <path d="M490,78 Q505,160 498,262 L475,262 L475,78 Z" fill="${colors.int_window}" opacity="0.9"/>
+    <!-- Curtain rod -->
+    <rect x="268" y="74" width="234" height="8" rx="4" fill="${hexDarken(colors.int_trim,20)}"/>
+    <circle cx="268" cy="78" r="6" fill="${hexDarken(colors.int_trim,25)}"/>
+    <circle cx="502" cy="78" r="6" fill="${hexDarken(colors.int_trim,25)}"/>
+  </g>
+
+  <!-- Sunlight on floor -->
+  <polygon points="295,380 477,380 520,490 252,490" fill="${hexLighten(colors.int_floor,25)}" opacity="0.3"/>
+
+  <!-- SOFA -->
+  <g class="clickable-surface" data-id="int_sofa" onclick="selectSurface('int_sofa')" filter="url(#innerShadow)">
+    <!-- Sofa base -->
+    <rect x="95" y="320" width="270" height="60" rx="6" fill="${colors.int_sofa}"/>
+    <!-- Sofa back -->
+    <rect x="95" y="278" width="270" height="50" rx="6" fill="${hexDarken(colors.int_sofa,8)}"/>
+    <!-- Sofa arms -->
+    <rect x="90" y="282" width="22" height="90" rx="5" fill="${hexDarken(colors.int_sofa,12)}"/>
+    <rect x="348" y="282" width="22" height="90" rx="5" fill="${hexDarken(colors.int_sofa,12)}"/>
+    <!-- Sofa cushions -->
+    <rect x="100" y="284" width="78" height="42" rx="5" fill="${hexLighten(colors.int_sofa,8)}" opacity="0.7"/>
+    <rect x="186" y="284" width="78" height="42" rx="5" fill="${hexLighten(colors.int_sofa,8)}" opacity="0.7"/>
+    <rect x="272" y="284" width="78" height="42" rx="5" fill="${hexLighten(colors.int_sofa,8)}" opacity="0.7"/>
+    <!-- Seat cushions -->
+    <rect x="100" y="325" width="78" height="48" rx="4" fill="${hexLighten(colors.int_sofa,5)}" opacity="0.6"/>
+    <rect x="186" y="325" width="78" height="48" rx="4" fill="${hexLighten(colors.int_sofa,5)}" opacity="0.6"/>
+    <rect x="272" y="325" width="78" height="48" rx="4" fill="${hexLighten(colors.int_sofa,5)}" opacity="0.6"/>
+    <!-- Sofa legs -->
+    <rect x="105" y="378" width="12" height="10" rx="2" fill="${hexDarken(colors.int_sofa,30)}"/>
+    <rect x="348" y="378" width="12" height="10" rx="2" fill="${hexDarken(colors.int_sofa,30)}"/>
+    <rect x="220" y="378" width="12" height="10" rx="2" fill="${hexDarken(colors.int_sofa,30)}"/>
+    <!-- Throw pillow -->
+    <rect x="340" y="292" width="28" height="28" rx="5" fill="${colors.int_accent}" opacity="0.8" transform="rotate(-10,354,306)"/>
+  </g>
+
+  <!-- COFFEE TABLE -->
+  <g class="clickable-surface" data-id="int_table" onclick="selectSurface('int_table')">
+    <rect x="155" y="370" width="150" height="12" rx="4" fill="${colors.int_table}"/>
+    <rect x="160" y="375" width="140" height="8" rx="2" fill="${hexLighten(colors.int_table,10)}" opacity="0.4"/>
+    <!-- table legs -->
+    <rect x="163" y="381" width="8" height="16" rx="2" fill="${hexDarken(colors.int_table,15)}"/>
+    <rect x="289" y="381" width="8" height="16" rx="2" fill="${hexDarken(colors.int_table,15)}"/>
+    <!-- Item on table -->
+    <rect x="200" y="360" width="28" height="14" rx="2" fill="${hexDarken(colors.int_table,8)}" opacity="0.6"/>
+    <circle cx="248" cy="367" r="7" fill="${hexLighten(colors.int_table,20)}" opacity="0.7"/>
+  </g>
+
+  <!-- BOOKSHELF / CABINET right -->
+  <g class="clickable-surface" data-id="int_table" onclick="selectSurface('int_table')">
+    <rect x="565" y="160" width="80" height="220" rx="3" fill="${hexDarken(colors.int_table,5)}"/>
+    <!-- Shelves -->
+    ${[0,1,2,3].map(i=>`<rect x="565" y="${214+i*48}" width="80" height="5" rx="1" fill="${hexDarken(colors.int_table,20)}" opacity="0.6"/>`).join('')}
+    <!-- Books decoration -->
+    ${[0,1,2,3].map(i=>`
+      <rect x="568" y="${165+i*48}" width="9" height="42" rx="1" fill="${['#C4622D','#7A9E7E','#D4A843','#6B8DAD'][i]}" opacity="0.8"/>
+      <rect x="579" y="${168+i*48}" width="9" height="40" rx="1" fill="${['#8B5E3C','#5A7A5C','#B8902A','#4A6B8A'][i]}" opacity="0.9"/>
+      <rect x="590" y="${166+i*48}" width="6" height="41" rx="1" fill="${['#D4927A','#9ABE9D','#E4B850','#7A9DBD'][i]}" opacity="0.75"/>
+    `).join('')}
+  </g>
+
+  <!-- PENDANT LIGHT -->
+  <g>
+    <line x1="386" y1="50" x2="386" y2="90" stroke="${hexDarken(colors.int_ceiling,30)}" stroke-width="2"/>
+    <ellipse cx="386" cy="100" rx="28" ry="14" fill="${hexDarken(colors.int_ceiling,15)}"/>
+    <ellipse cx="386" cy="94" rx="20" ry="10" fill="#FFE890" opacity="0.6"/>
+    <!-- light glow -->
+    <ellipse cx="386" cy="120" rx="60" ry="30" fill="#FFF5C0" opacity="0.12"/>
+  </g>
+
+  <!-- Wall art on accent wall -->
+  <rect x="100" y="155" width="95" height="70" rx="3" fill="${hexDarken(colors.int_accent,15)}" stroke="${hexLighten(colors.int_accent,20)}" stroke-width="2"/>
+  <rect x="106" y="161" width="83" height="58" rx="2" fill="${hexLighten(colors.int_accent,5)}" opacity="0.5"/>
+  <!-- Abstract art lines -->
+  <path d="M110,185 Q148,168 188,195" stroke="${hexLighten(colors.int_accent,40)}" stroke-width="2" fill="none" opacity="0.7"/>
+  <circle cx="150" cy="180" r="12" fill="${hexLighten(colors.int_accent,25)}" opacity="0.5"/>
+
+  <!-- Rug -->
+  <ellipse cx="230" cy="385" rx="130" ry="20" fill="${hexDarken(colors.int_floor,5)}" opacity="0.35"/>
+  <ellipse cx="230" cy="380" rx="118" ry="15" fill="${hexLighten(colors.int_floor,10)}" opacity="0.25"/>
+
+</svg>`;
+}
+
+/* ═══════════════════════════════════════════
+   COLOR HELPERS
+═══════════════════════════════════════════ */
+function hexToRgb(hex) {
+  const h = hex.replace('#','');
+  const n = parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
+function rgbToHex(r,g,b) {
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+}
+function hexDarken(hex, amt) {
+  try { const [r,g,b]=hexToRgb(hex); return rgbToHex(r-amt,g-amt,b-amt); } catch { return hex; }
+}
+function hexLighten(hex, amt) {
+  try { const [r,g,b]=hexToRgb(hex); return rgbToHex(r+amt,g+amt,b+amt); } catch { return hex; }
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function renderHouse() {
+  const wrap = document.getElementById('houseWrap');
+  wrap.innerHTML = currentView === 'exterior' ? buildExteriorSvg() : buildInteriorSvg();
+  attachSvgTooltips();
+  if (activeSurface) highlightSvgSurface(activeSurface);
+}
+
+function applyColorsToSvg() {
+  renderHouse();
+}
+
+function highlightSvgSurface(id) {
+  const svg = document.getElementById('houseSvg');
+  if (!svg) return;
+  svg.querySelectorAll('.clickable-surface').forEach(el => {
+    el.classList.remove('selected');
+    el.style.outline = '';
+  });
+  svg.querySelectorAll(`[data-id="${id}"]`).forEach(el => {
+    el.classList.add('selected');
+  });
+}
+
+function attachSvgTooltips() {
+  const svg = document.getElementById('houseSvg');
+  const tooltip = document.getElementById('tooltip');
+  if (!svg) return;
+
+  svg.querySelectorAll('.clickable-surface').forEach(el => {
+    el.addEventListener('mouseenter', (e) => {
+      const id = el.dataset.id;
+      const s = [...EXTERIOR_SURFACES,...INTERIOR_SURFACES].find(x=>x.id===id);
+      if (s) {
+        tooltip.textContent = s.label + ' — click to select';
+        tooltip.classList.add('show');
+      }
+    });
+    el.addEventListener('mousemove', (e) => {
+      const rect = document.getElementById('mainCanvas').getBoundingClientRect();
+      tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+      tooltip.style.top = (e.clientY - rect.top - 30) + 'px';
+    });
+    el.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+  });
+}
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+loadFromUrl();
+renderPalettes();
+renderSurfaces();
+renderHouse();
+
+// Select first surface by default
+const defaultSurface = currentView === 'exterior' ? EXTERIOR_SURFACES[0] : INTERIOR_SURFACES[0];
+selectSurface(defaultSurface.id);
+</script>
+</body>
+</html>
+```
