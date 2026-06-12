@@ -349,7 +349,7 @@
   <!-- RIGHT CANVAS -->
   <div class="canvas" id="mainCanvas">
     <div class="canvas-bg-pattern"></div>
-    <div class="canvas-view-label" id="canvasLabel">Exterior View</div>
+    <div class="canvas-view-label" id="canvasLabel">Exterior — Corner View</div>
 
     <div class="house-wrap" id="houseWrap">
       <!-- SVG injected by JS -->
@@ -370,16 +370,18 @@ let activeSurface = null;
 let isViewOnly = false;
 
 const EXTERIOR_SURFACES = [
-  { id: 'ext_wall',      label: 'Main Wall',       default: '#E8DDD0', group: 'ext' },
-  { id: 'ext_wall2',     label: 'Side Wall',        default: '#D9CBBF', group: 'ext' },
-  { id: 'ext_roof',      label: 'Roof',             default: '#5C4A3A', group: 'ext' },
-  { id: 'ext_roof2',     label: 'Roof Accent',      default: '#4A3929', group: 'ext' },
-  { id: 'ext_door',      label: 'Front Door',       default: '#3D2B1F', group: 'ext' },
-  { id: 'ext_window',    label: 'Window Frames',    default: '#C4A882', group: 'ext' },
-  { id: 'ext_trim',      label: 'Trim & Fascia',    default: '#F5EEE6', group: 'ext' },
-  { id: 'ext_garage',    label: 'Garage Door',      default: '#BEB5AA', group: 'ext' },
-  { id: 'ext_path',      label: 'Pathway',          default: '#C9BEA8', group: 'ext' },
-  { id: 'ext_grass',     label: 'Lawn',             default: '#7A9E7E', group: 'ext' },
+  { id: 'ext_wall_front', label: 'Front Wall',       default: '#EAE4DC', group: 'ext' },
+  { id: 'ext_wall_side',  label: 'Side Wall',         default: '#D5CEC5', group: 'ext' },
+  { id: 'ext_roof_top',   label: 'Flat Roof / Top',   default: '#4A5568', group: 'ext' },
+  { id: 'ext_roof_over',  label: 'Roof Overhang',     default: '#CBD5E1', group: 'ext' },
+  { id: 'ext_upper_band', label: 'Upper Cladding',    default: '#2D3748', group: 'ext' },
+  { id: 'ext_door',       label: 'Front Door',        default: '#1A202C', group: 'ext' },
+  { id: 'ext_window',     label: 'Window Glass',      default: '#93C5FD', group: 'ext' },
+  { id: 'ext_frame',      label: 'Window Frames',     default: '#F1F5F9', group: 'ext' },
+  { id: 'ext_garage',     label: 'Garage Door',       default: '#94A3B8', group: 'ext' },
+  { id: 'ext_column',     label: 'Columns / Pillars', default: '#F8FAFC', group: 'ext' },
+  { id: 'ext_path',       label: 'Driveway / Path',   default: '#C8C0B4', group: 'ext' },
+  { id: 'ext_grass',      label: 'Lawn',              default: '#6B9E6B', group: 'ext' },
 ];
 
 const INTERIOR_SURFACES = [
@@ -563,7 +565,7 @@ function setView(v) {
   document.getElementById('activeSurfaceName').textContent = '—';
   document.getElementById('extBtn').classList.toggle('active', v === 'exterior');
   document.getElementById('intBtn').classList.toggle('active', v === 'interior');
-  document.getElementById('canvasLabel').textContent = v === 'exterior' ? 'Exterior View' : 'Interior View';
+  document.getElementById('canvasLabel').textContent = v === 'exterior' ? 'Exterior — Corner View' : 'Interior View';
 
   renderHouse();
   renderSurfaces();
@@ -580,194 +582,424 @@ function showToast(msg) {
 }
 
 /* ═══════════════════════════════════════════
-   SVG: EXTERIOR HOUSE
+   ISO HELPERS — cabinet/corner projection
+   Origin corner = (ox, oy). X goes right-down,
+   Z goes left-down, Y goes straight up.
+   sx = x-scale, sz = z-scale, sy = y-scale
+═══════════════════════════════════════════ */
+const ISO = {
+  // unit vectors (per pixel of model space)
+  // Front face: x-axis goes right+down, y-axis goes straight up
+  // Side face:  z-axis goes left+down,  y-axis goes straight up
+  // Top face:   x-axis + z-axis
+  ox: 310, oy: 390,   // ground-level corner point (front-right corner of house)
+  sx: 0.82, sy: 0.42, // horizontal scale and vertical drop per unit right/left
+  hx: 0, hy: 1,       // up direction (y in screen space, negative = up)
+};
+
+function pt(rx, rz, ry) {
+  // rx = rightward along front face width
+  // rz = leftward along side face depth
+  // ry = upward height
+  const sx = ISO.sx, sy = ISO.sy;
+  const x = ISO.ox + rx * sx - rz * sx;
+  const y = ISO.oy - rx * sy - rz * sy - ry;
+  return `${x.toFixed(2)},${y.toFixed(2)}`;
+}
+
+function poly(pts, fill, cls, id, extra='') {
+  const points = pts.map(([rx,rz,ry])=>pt(rx,rz,ry)).join(' ');
+  return `<polygon points="${points}" fill="${fill}" class="${cls}" ${id?`data-id="${id}" onclick="selectSurface('${id}')"`:''}  ${extra}/>`;
+}
+
+/* ═══════════════════════════════════════════
+   SVG: EXTERIOR HOUSE — Isometric Corner View
+   Modern flat-roof villa, front+right-side visible
 ═══════════════════════════════════════════ */
 function buildExteriorSvg() {
+  // House dimensions in model units
+  const W = 220;   // front width
+  const D = 140;   // side depth
+  const H = 140;   // main wall height
+  const OH = 14;   // roof overhang thickness
+  const OW = 12;   // overhang protrusion front
+  const OD = 10;   // overhang protrusion side
+
+  // Upper cladding band (top portion of wall)
+  const bandH = 42;
+  const bandY = H - bandH;  // starts at this height
+
+  // Garage wing: left side of front face
+  const GW = 80;  // garage width
+  const GH = 90;  // garage height
+  const GD = D;   // same depth
+
+  // Story 2 box (right side upper)
+  const S2x = GW + 10;
+  const S2w = W - GW - 10;
+  const S2h = 46;
+
+  // Ground level
+  const gnd = 0;
+
+  const c = colors;
+
+  // Shading factors: front is brighter, side is darker
+  const frontWall   = c.ext_wall_front;
+  const sideWall    = hexDarken(c.ext_wall_side, 18);
+  const topRoof     = hexDarken(c.ext_roof_top, 5);
+  const overhang    = c.ext_roof_over;
+  const upperBandF  = c.ext_upper_band;
+  const upperBandS  = hexDarken(c.ext_upper_band, 22);
+  const grassC      = c.ext_grass;
+  const pathC       = c.ext_path;
+  const doorC       = c.ext_door;
+  const winGlass    = c.ext_window;
+  const winFrame    = c.ext_frame;
+  const garageC     = c.ext_garage;
+  const columnC     = c.ext_column;
+
+  // Ground shadow ellipse under house
+  function groundShadow() {
+    const corners = [[0,0],[W,0],[W,D],[0,D]];
+    const xs = corners.map(([rx,rz])=>{
+      const x = ISO.ox + rx*ISO.sx - rz*ISO.sx;
+      return x;
+    });
+    const ys = corners.map(([rx,rz])=>{
+      const y = ISO.oy - rx*ISO.sy - rz*ISO.sy;
+      return y;
+    });
+    return `<ellipse cx="${((Math.min(...xs)+Math.max(...xs))/2).toFixed(0)}" cy="${((Math.min(...ys)+Math.max(...ys))/2+22).toFixed(0)}" rx="210" ry="38" fill="rgba(0,0,0,0.13)"/>`;
+  }
+
+  // ISO parallelogram face helpers
+  // Front face rect: from (rx0,rz,ry0) with width dw along X, height dh along Y
+  function frontFaceRect(rx, rz, ry, dw, dh, fill, cls, id, extra='') {
+    return poly([[rx,rz,ry],[rx+dw,rz,ry],[rx+dw,rz,ry+dh],[rx,rz,ry+dh]], fill, cls, id, extra);
+  }
+  // Side face rect: from (rx,rz0,ry) with depth dd along Z, height dh along Y
+  function sideFaceRect(rx, rz, ry, dd, dh, fill, cls, id, extra='') {
+    return poly([[rx,rz,ry],[rx,rz+dd,ry],[rx,rz+dd,ry+dh],[rx,rz,ry+dh]], fill, cls, id, extra);
+  }
+  // Top face: from (rx,rz,ry) spanning dw in X and dd in Z
+  function topFaceRect(rx, rz, ry, dw, dd, fill, cls, id, extra='') {
+    return poly([[rx,rz,ry],[rx+dw,rz,ry],[rx+dw,rz+dd,ry],[rx,rz+dd,ry]], fill, cls, id, extra);
+  }
+
+  // Isometric window on FRONT face
+  function isoWinFront(rx, rz, ry, dw, dh) {
+    const frameW = winFrame;
+    const glass  = winGlass;
+    const fThk = 4;
+    return `
+      <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
+        ${frontFaceRect(rx, rz, ry, dw, dh, frameW, 'clickable-surface', 'ext_frame')}
+        ${frontFaceRect(rx+fThk, rz-0.01, ry+fThk, dw-fThk*2, dh-fThk*2, glass, 'clickable-surface', 'ext_window')}
+        <!-- vertical mullion -->
+        ${poly([[rx+dw/2-1.5,rz-0.02,ry+fThk],[rx+dw/2+1.5,rz-0.02,ry+fThk],[rx+dw/2+1.5,rz-0.02,ry+dh-fThk],[rx+dw/2-1.5,rz-0.02,ry+dh-fThk]], frameW, '', null)}
+        <!-- horizontal mullion -->
+        ${poly([[rx+fThk,rz-0.02,ry+dh/2-1],[rx+dw-fThk,rz-0.02,ry+dh/2-1],[rx+dw-fThk,rz-0.02,ry+dh/2+2],[rx+fThk,rz-0.02,ry+dh/2+2]], frameW, '', null)}
+        <!-- reflection -->
+        ${poly([[rx+fThk+3,rz-0.03,ry+fThk+3],[rx+fThk+12,rz-0.03,ry+fThk+3],[rx+fThk+12,rz-0.03,ry+fThk+18],[rx+fThk+3,rz-0.03,ry+fThk+18]], 'rgba(255,255,255,0.28)', '', null)}
+      </g>`;
+  }
+
+  // Isometric window on SIDE face
+  function isoWinSide(rx, rz, ry, dd, dh) {
+    const frameW = winFrame;
+    const glass  = winGlass;
+    const fThk = 4;
+    return `
+      <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
+        ${sideFaceRect(rx, rz, ry, dd, dh, frameW, 'clickable-surface', 'ext_frame')}
+        ${sideFaceRect(rx+0.01, rz+fThk, ry+fThk, dd-fThk*2, dh-fThk*2, glass, 'clickable-surface', 'ext_window')}
+        ${poly([[rx+0.02,rz+dd/2-1,ry+fThk],[rx+0.02,rz+dd/2+2,ry+fThk],[rx+0.02,rz+dd/2+2,ry+dh-fThk],[rx+0.02,rz+dd/2-1,ry+dh-fThk]], frameW, '', null)}
+        ${poly([[rx+0.02,rz+fThk,ry+dh/2-1],[rx+0.02,rz+dd-fThk,ry+dh/2-1],[rx+0.02,rz+dd-fThk,ry+dh/2+2],[rx+0.02,rz+fThk,ry+dh/2+2]], frameW, '', null)}
+        ${poly([[rx+0.03,rz+fThk+3,ry+fThk+3],[rx+0.03,rz+fThk+12,ry+fThk+3],[rx+0.03,rz+fThk+12,ry+fThk+16],[rx+0.03,rz+fThk+3,ry+fThk+16]], 'rgba(255,255,255,0.22)', '', null)}
+      </g>`;
+  }
+
+  // Isometric door on FRONT face
+  function isoDoor(rx, rz, ry, dw, dh) {
+    const dc = doorC;
+    const fThk = 5;
+    return `
+      <g class="clickable-surface" data-id="ext_door" onclick="selectSurface('ext_door')">
+        ${frontFaceRect(rx, rz, ry, dw, dh, hexDarken(dc,10), 'clickable-surface', 'ext_door')}
+        ${frontFaceRect(rx+fThk, rz-0.01, ry+fThk, dw-fThk*2, dh-fThk-2, hexLighten(dc,8), '', null)}
+        <!-- door panel upper -->
+        ${poly([[rx+fThk+3,rz-0.02,ry+fThk+3],[rx+dw/2-2,rz-0.02,ry+fThk+3],[rx+dw/2-2,rz-0.02,ry+dh*0.5],[rx+fThk+3,rz-0.02,ry+dh*0.5]], hexLighten(dc,15), '', null, 'opacity="0.35"')}
+        <!-- door panel lower -->
+        ${poly([[rx+dw/2+2,rz-0.02,ry+fThk+3],[rx+dw-fThk-3,rz-0.02,ry+fThk+3],[rx+dw-fThk-3,rz-0.02,ry+dh*0.5],[rx+dw/2+2,rz-0.02,ry+dh*0.5]], hexLighten(dc,15), '', null, 'opacity="0.35"')}
+        <!-- handle -->
+        ${poly([[rx+dw*0.72,rz-0.03,ry+dh*0.45],[rx+dw*0.72+4,rz-0.03,ry+dh*0.45],[rx+dw*0.72+4,rz-0.03,ry+dh*0.58],[rx+dw*0.72,rz-0.03,ry+dh*0.58]], hexLighten(dc,50), '', null, 'opacity="0.9"')}
+        <!-- transom -->
+        ${frontFaceRect(rx, rz-0.01, ry+dh, dw, 10, hexLighten(winGlass,20), '', null, 'opacity="0.7"')}
+      </g>`;
+  }
+
+  // Pillar / column on front face
+  function isoColumn(rx, rz, ry, dw, dh) {
+    return `
+      <g class="clickable-surface" data-id="ext_column" onclick="selectSurface('ext_column')">
+        ${frontFaceRect(rx, rz, ry, dw, dh, columnC, 'clickable-surface', 'ext_column')}
+        ${sideFaceRect(rx+dw, rz, ry, 6, dh, hexDarken(columnC,18), '', null)}
+        ${topFaceRect(rx, rz, ry+dh, dw+2, 6, hexLighten(columnC,10), '', null)}
+      </g>`;
+  }
+
   return `
-<svg viewBox="0 0 700 480" xmlns="http://www.w3.org/2000/svg" id="houseSvg">
+<svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg" id="houseSvg">
   <defs>
     <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#B8D4E8"/>
-      <stop offset="100%" stop-color="#E8EFF5"/>
+      <stop offset="0%" stop-color="#DAEAF6"/>
+      <stop offset="100%" stop-color="#EEF5FB"/>
     </linearGradient>
-    <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="${colors.ext_grass}"/>
-      <stop offset="100%" stop-color="${hexDarken(colors.ext_grass,20)}"/>
+    <linearGradient id="skyGlow" x1="0.8" y1="0" x2="0.2" y2="1">
+      <stop offset="0%" stop-color="#FFF0D0" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="transparent"/>
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.18)"/>
+    <radialGradient id="sunGlow" cx="85%" cy="12%" r="28%">
+      <stop offset="0%" stop-color="#FFE8A0" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <filter id="houseDropShadow" x="-12%" y="-8%" width="130%" height="140%">
+      <feDropShadow dx="4" dy="10" stdDeviation="12" flood-color="rgba(20,30,50,0.22)"/>
     </filter>
-    <pattern id="brickPat" x="0" y="0" width="18" height="10" patternUnits="userSpaceOnUse">
-      <rect width="18" height="10" fill="${colors.ext_wall}"/>
-      <rect x="0" y="0" width="17" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall,6)}" opacity="0.25"/>
-      <rect x="9" y="5" width="8" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall,6)}" opacity="0.18"/>
+    <filter id="softBlur"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <clipPath id="skyClip"><rect width="700" height="500"/></clipPath>
+
+    <!-- Concrete texture for walls -->
+    <pattern id="concretePat" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+      <rect width="30" height="30" fill="${frontWall}"/>
+      <line x1="0" y1="10" x2="30" y2="10" stroke="${hexDarken(frontWall,4)}" stroke-width="0.4" opacity="0.4"/>
+      <line x1="0" y1="20" x2="30" y2="20" stroke="${hexDarken(frontWall,4)}" stroke-width="0.4" opacity="0.3"/>
     </pattern>
-    <pattern id="roofTile" x="0" y="0" width="14" height="10" patternUnits="userSpaceOnUse">
-      <rect width="14" height="10" fill="${colors.ext_roof}"/>
-      <path d="M0,5 Q7,0 14,5" fill="${hexLighten(colors.ext_roof,8)}" opacity="0.3"/>
+    <pattern id="sidePat" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+      <rect width="30" height="30" fill="${sideWall}"/>
+      <line x1="0" y1="10" x2="30" y2="10" stroke="${hexDarken(sideWall,5)}" stroke-width="0.4" opacity="0.35"/>
+      <line x1="0" y1="20" x2="30" y2="20" stroke="${hexDarken(sideWall,5)}" stroke-width="0.4" opacity="0.25"/>
     </pattern>
-    <pattern id="sideBrick" x="0" y="0" width="18" height="10" patternUnits="userSpaceOnUse">
-      <rect width="18" height="10" fill="${colors.ext_wall2}"/>
-      <rect x="0" y="0" width="17" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall2,8)}" opacity="0.2"/>
-      <rect x="9" y="5" width="8" height="4.5" rx="0.3" fill="${hexDarken(colors.ext_wall2,8)}" opacity="0.15"/>
+    <!-- Flat roof texture -->
+    <pattern id="roofPat" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="${topRoof}"/>
+      <rect x="0" y="0" width="20" height="1" fill="${hexDarken(topRoof,8)}" opacity="0.3"/>
+      <rect x="0" y="10" width="20" height="1" fill="${hexDarken(topRoof,8)}" opacity="0.2"/>
+    </pattern>
+    <!-- Garage door texture -->
+    <pattern id="garagePat" x="0" y="0" width="100" height="14" patternUnits="userSpaceOnUse">
+      <rect width="100" height="14" fill="${garageC}"/>
+      <rect x="0" y="0" width="100" height="13" rx="0.5" fill="${hexLighten(garageC,7)}" opacity="0.45"/>
+      <line x1="0" y1="13" x2="100" y2="13" stroke="${hexDarken(garageC,15)}" stroke-width="1.2" opacity="0.6"/>
+    </pattern>
+    <!-- Driveway texture -->
+    <pattern id="drivePat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="${pathC}"/>
+      <line x1="20" y1="0" x2="20" y2="40" stroke="${hexDarken(pathC,8)}" stroke-width="0.5" opacity="0.3"/>
+      <line x1="0" y1="20" x2="40" y2="20" stroke="${hexDarken(pathC,8)}" stroke-width="0.5" opacity="0.25"/>
     </pattern>
   </defs>
 
-  <!-- Sky -->
-  <rect width="700" height="480" fill="url(#skyGrad)"/>
+  <!-- ── SKY & ATMOSPHERE ── -->
+  <rect width="700" height="500" fill="url(#skyGrad)"/>
+  <rect width="700" height="500" fill="url(#skyGlow)"/>
+  <rect width="700" height="500" fill="url(#sunGlow)"/>
 
   <!-- Clouds -->
-  <g opacity="0.7">
-    <ellipse cx="100" cy="60" rx="55" ry="18" fill="white"/>
-    <ellipse cx="130" cy="50" rx="35" ry="22" fill="white"/>
-    <ellipse cx="75" cy="55" rx="30" ry="16" fill="white"/>
-    <ellipse cx="560" cy="75" rx="45" ry="15" fill="white"/>
-    <ellipse cx="590" cy="65" rx="30" ry="18" fill="white"/>
-    <ellipse cx="540" cy="70" rx="25" ry="13" fill="white"/>
+  <g opacity="0.78">
+    <ellipse cx="88" cy="55" rx="62" ry="20" fill="white"/>
+    <ellipse cx="118" cy="44" rx="40" ry="25" fill="white"/>
+    <ellipse cx="62" cy="50" rx="32" ry="17" fill="white"/>
+    <ellipse cx="88" cy="60" rx="20" ry="12" fill="rgba(255,255,255,0.6)"/>
+    <ellipse cx="500" cy="42" rx="50" ry="17" fill="white"/>
+    <ellipse cx="535" cy="32" rx="32" ry="20" fill="white"/>
+    <ellipse cx="475" cy="38" rx="28" ry="15" fill="white"/>
   </g>
-
-  <!-- Ground / grass -->
-  <rect x="0" y="370" width="700" height="110" fill="url(#grassGrad)" class="clickable-surface" data-id="ext_grass" onclick="selectSurface('ext_grass')"/>
-
-  <!-- Pathway -->
-  <path d="M300,480 L270,370 L390,370 L360,480 Z" fill="${colors.ext_path}" class="clickable-surface" data-id="ext_path" onclick="selectSurface('ext_path')"/>
-  <line x1="280" y1="400" x2="352" y2="400" stroke="${hexDarken(colors.ext_path,10)}" stroke-width="1" stroke-dasharray="8,5" opacity="0.5"/>
-  <line x1="273" y1="430" x2="347" y2="430" stroke="${hexDarken(colors.ext_path,10)}" stroke-width="1" stroke-dasharray="8,5" opacity="0.5"/>
-
-  <!-- Bushes -->
-  <ellipse cx="85" cy="370" rx="38" ry="22" fill="${hexDarken(colors.ext_grass,15)}"/>
-  <ellipse cx="65" cy="368" rx="25" ry="18" fill="${hexDarken(colors.ext_grass,8)}"/>
-  <ellipse cx="108" cy="368" rx="20" ry="15" fill="${hexDarken(colors.ext_grass,18)}"/>
-  <ellipse cx="615" cy="370" rx="38" ry="22" fill="${hexDarken(colors.ext_grass,15)}"/>
-  <ellipse cx="598" cy="368" rx="22" ry="15" fill="${hexDarken(colors.ext_grass,18)}"/>
-
-  <!-- Trees -->
-  <rect x="148" y="290" width="8" height="80" fill="#8B6F57"/>
-  <ellipse cx="152" cy="268" rx="32" ry="38" fill="${hexDarken(colors.ext_grass,25)}"/>
-  <ellipse cx="152" cy="258" rx="22" ry="28" fill="${hexDarken(colors.ext_grass,15)}"/>
-  <rect x="542" y="300" width="8" height="70" fill="#8B6F57"/>
-  <ellipse cx="546" cy="278" rx="30" ry="35" fill="${hexDarken(colors.ext_grass,25)}"/>
-  <ellipse cx="546" cy="268" rx="20" ry="25" fill="${hexDarken(colors.ext_grass,15)}"/>
-
-  <!-- MAIN HOUSE STRUCTURE -->
-  <g filter="url(#shadow)">
-
-    <!-- Garage section (left) -->
-    <rect x="80" y="230" width="170" height="140" fill="url(#sideBrick)" class="clickable-surface" data-id="ext_wall2" onclick="selectSurface('ext_wall2')"/>
-
-    <!-- Main wall -->
-    <rect x="245" y="185" width="320" height="185" fill="url(#brickPat)" class="clickable-surface" data-id="ext_wall" onclick="selectSurface('ext_wall')"/>
-
-    <!-- Garage roof -->
-    <polygon points="60,234 255,234 255,200 157,165" fill="${colors.ext_roof2}" class="clickable-surface" data-id="ext_roof2" onclick="selectSurface('ext_roof2')"/>
-    <polygon points="60,234 255,234 255,228 157,172" fill="${hexLighten(colors.ext_roof2,8)}" opacity="0.35"/>
-    <!-- Garage roof ridge -->
-    <line x1="157" y1="165" x2="255" y2="200" stroke="${hexDarken(colors.ext_roof2,15)}" stroke-width="2.5"/>
-
-    <!-- Main roof -->
-    <polygon points="225,190 585,190 585,183 405,115 225,183" fill="url(#roofTile)" class="clickable-surface" data-id="ext_roof" onclick="selectSurface('ext_roof')"/>
-    <polygon points="225,190 585,190 585,183 405,115 225,183" fill="${hexLighten(colors.ext_roof,12)}" opacity="0.15"/>
-    <!-- Roof ridge -->
-    <line x1="225" y1="184" x2="405" y2="115" stroke="${hexDarken(colors.ext_roof,20)}" stroke-width="3"/>
-    <line x1="405" y1="115" x2="585" y2="184" stroke="${hexDarken(colors.ext_roof,20)}" stroke-width="3"/>
-    <!-- Fascia / eave trim -->
-    <polygon points="218,189 592,189 585,199 225,199" fill="${colors.ext_trim}" class="clickable-surface" data-id="ext_trim" onclick="selectSurface('ext_trim')"/>
-    <polygon points="55,233 262,233 255,242 62,242" fill="${colors.ext_trim}"/>
-
-    <!-- Chimney -->
-    <rect x="485" y="115" width="32" height="65" fill="${hexDarken(colors.ext_wall,15)}"/>
-    <rect x="480" y="112" width="42" height="8" rx="2" fill="${hexDarken(colors.ext_wall,25)}"/>
-
-    <!-- GARAGE DOOR -->
-    <rect x="95" y="248" width="140" height="110" rx="3" fill="${colors.ext_garage}" class="clickable-surface" data-id="ext_garage" onclick="selectSurface('ext_garage')"/>
-    <!-- Garage panels -->
-    ${[0,1,2,3].map(i=>`<rect x="97" y="${250+i*26}" width="136" height="24" rx="1.5" fill="${hexLighten(colors.ext_garage,6)}" opacity="0.5"/>`).join('')}
-    <!-- Garage door handle -->
-    <rect x="157" y="299" width="20" height="5" rx="2.5" fill="${hexDarken(colors.ext_garage,30)}" opacity="0.8"/>
-    <!-- Garage trim -->
-    <rect x="92" y="245" width="146" height="116" rx="4" fill="none" stroke="${colors.ext_trim}" stroke-width="4"/>
-
-    <!-- FRONT DOOR -->
-    <rect x="340" y="270" width="70" height="100" rx="3" fill="${colors.ext_door}" class="clickable-surface" data-id="ext_door" onclick="selectSurface('ext_door')"/>
-    <!-- Door arch -->
-    <path d="M338,280 Q375,255 412,280" fill="${hexLighten(colors.ext_door,10)}" opacity="0.4"/>
-    <!-- Door panels -->
-    <rect x="346" y="278" width="26" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.25"/>
-    <rect x="378" y="278" width="26" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.25"/>
-    <rect x="346" y="320" width="58" height="35" rx="2" fill="${hexLighten(colors.ext_door,12)}" opacity="0.2"/>
-    <!-- Door handle -->
-    <circle cx="398" cy="320" r="4" fill="${hexLighten(colors.ext_door,40)}" opacity="0.9"/>
-    <rect x="396" y="315" width="4" height="18" rx="2" fill="${hexLighten(colors.ext_door,35)}" opacity="0.8"/>
-    <!-- Door frame trim -->
-    <rect x="336" y="268" width="78" height="102" rx="4" fill="none" stroke="${colors.ext_trim}" stroke-width="5"/>
-    <!-- Transom window above door -->
-    <rect x="345" y="261" width="60" height="14" rx="2" fill="${hexLighten(colors.ext_window,20)}" opacity="0.6"/>
-    <line x1="375" y1="261" x2="375" y2="275" stroke="${colors.ext_window}" stroke-width="1.5" opacity="0.7"/>
-
-    <!-- WINDOWS -->
-    <!-- Left large window -->
-    ${windowEl(262, 218, 90, 75, colors)}
-    <!-- Right large window -->
-    ${windowEl(455, 218, 90, 75, colors)}
-
-    <!-- Upper gable windows -->
-    ${gableWindowEl(345, 140, 50, 38, colors)}
-    ${gableWindowEl(410, 140, 50, 38, colors)}
-
-    <!-- Garage section window -->
-    ${smallWindowEl(100, 198, 55, 28, colors)}
-    ${smallWindowEl(170, 198, 55, 28, colors)}
-
-  </g>
-
-  <!-- Gutters -->
-  <rect x="224" y="188" width="362" height="6" rx="2" fill="${hexDarken(colors.ext_trim,15)}" opacity="0.6"/>
-
-  <!-- Steps -->
-  <rect x="320" y="365" width="110" height="10" rx="2" fill="${hexDarken(colors.ext_path,15)}"/>
-  <rect x="330" y="358" width="90" height="10" rx="2" fill="${hexDarken(colors.ext_path,10)}"/>
-
-  <!-- Flower beds -->
-  <ellipse cx="250" cy="368" rx="28" ry="8" fill="${hexDarken(colors.ext_grass,20)}" opacity="0.7"/>
-  <ellipse cx="450" cy="368" rx="28" ry="8" fill="${hexDarken(colors.ext_grass,20)}" opacity="0.7"/>
 
   <!-- Sun -->
-  <circle cx="640" cy="55" r="28" fill="#FFE168" opacity="0.85"/>
-  <circle cx="640" cy="55" r="22" fill="#FFD040"/>
-  ${Array.from({length:8},(_,i)=>{const a=i*45*Math.PI/180; return `<line x1="${640+32*Math.cos(a)}" y1="${55+32*Math.sin(a)}" x2="${640+42*Math.cos(a)}" y2="${55+42*Math.sin(a)}" stroke="#FFD040" stroke-width="3" stroke-linecap="round"/>`}).join('')}
+  <circle cx="618" cy="48" r="30" fill="#FFF0A0" opacity="0.9"/>
+  <circle cx="618" cy="48" r="22" fill="#FFD840" opacity="0.95"/>
+  ${Array.from({length:10},(_,i)=>{const a=i*36*Math.PI/180; return `<line x1="${(618+34*Math.cos(a)).toFixed(1)}" y1="${(48+34*Math.sin(a)).toFixed(1)}" x2="${(618+46*Math.cos(a)).toFixed(1)}" y2="${(48+46*Math.sin(a)).toFixed(1)}" stroke="#FFD040" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>`}).join('')}
+
+  <!-- ── GROUND PLANE ── -->
+  <!-- Lawn — big isometric ground quad -->
+  <polygon points="
+    ${pt(-60, -50, 0)}
+    ${pt(W+80, -50, 0)}
+    ${pt(W+80, D+80, 0)}
+    ${pt(-60, D+80, 0)}"
+    fill="${grassC}" class="clickable-surface" data-id="ext_grass" onclick="selectSurface('ext_grass')"/>
+  <!-- Lawn shading far corner -->
+  <polygon points="
+    ${pt(-60,-50,0)} ${pt(W+80,-50,0)} ${pt(W+80,D+80,0)} ${pt(-60,D+80,0)}"
+    fill="${hexDarken(grassC,12)}" opacity="0.3"/>
+
+  <!-- Grass texture stripes -->
+  ${[0,1,2,3,4].map(i=>`
+  <polygon points="${pt(-60+i*60,-50,0)} ${pt(-60+i*60+28,-50,0)} ${pt(-60+i*60+28,D+80,0)} ${pt(-60+i*60,D+80,0)}"
+    fill="${hexDarken(grassC,6)}" opacity="${0.1+i*0.02}"/>
+  `).join('')}
+
+  <!-- Driveway / path — isometric parallelogram in front of garage -->
+  <polygon points="
+    ${pt(0, -50, 0)}
+    ${pt(GW+15, -50, 0)}
+    ${pt(GW+15, -2, 0)}
+    ${pt(0, -2, 0)}"
+    fill="url(#drivePat)" class="clickable-surface" data-id="ext_path" onclick="selectSurface('ext_path')"/>
+  <!-- Driveway edge line -->
+  <polygon points="${pt(0,-2,0)} ${pt(GW+15,-2,0)} ${pt(GW+12,0,0)} ${pt(2,0,0)}"
+    fill="${hexDarken(pathC,15)}" opacity="0.5"/>
+
+  <!-- Path to front door — narrower strip -->
+  <polygon points="
+    ${pt(GW+35,-50,0)} ${pt(GW+60,-50,0)} ${pt(GW+60,-2,0)} ${pt(GW+35,-2,0)}"
+    fill="${hexLighten(pathC,5)}" class="clickable-surface" data-id="ext_path" onclick="selectSurface('ext_path')"/>
+
+  <!-- Ground shadow -->
+  ${groundShadow()}
+
+  <!-- ══ HOUSE GROUP ══ -->
+  <g filter="url(#houseDropShadow)">
+
+  <!-- ── GARAGE WING ── -->
+  <!-- Garage: front face -->
+  ${frontFaceRect(0, 0, 0, GW, GH, sideWall, 'clickable-surface', 'ext_wall_side')}
+
+  <!-- Garage door on front face -->
+  <g class="clickable-surface" data-id="ext_garage" onclick="selectSurface('ext_garage')">
+    ${frontFaceRect(6, -0.01, 4, GW-12, GH-10, 'url(#garagePat)', 'clickable-surface', 'ext_garage')}
+    <!-- Garage door track lines (horizontal) -->
+    ${[0,1,2,3,4,5].map(i=>
+      poly([[6,   -0.02, 4+i*(GH-14)/5],
+            [GW-6,-0.02, 4+i*(GH-14)/5],
+            [GW-6,-0.02, 4+i*(GH-14)/5+1.5],
+            [6,   -0.02, 4+i*(GH-14)/5+1.5]],
+        hexDarken(garageC,20), '', null, 'opacity="0.5"')
+    ).join('')}
+    <!-- Handle -->
+    ${poly([[GW/2-8,-0.03,GH/2-2],[GW/2+8,-0.03,GH/2-2],[GW/2+8,-0.03,GH/2+4],[GW/2-8,-0.03,GH/2+4]], hexLighten(garageC,30), '', null, 'opacity="0.8"')}
+  </g>
+  <!-- Garage trim frame -->
+  ${poly([[4,-0.015,2],[GW-4,-0.015,2],[GW-4,-0.015,GH-4],[4,-0.015,GH-4]], 'none', '', null, `stroke="${winFrame}" stroke-width="3" fill="none"`)}
+
+  <!-- Garage side face -->
+  ${sideFaceRect(0, 0, 0, D, GH, hexDarken(sideWall,22), 'clickable-surface', 'ext_wall_side')}
+
+  <!-- Garage roof top -->
+  ${topFaceRect(0, 0, GH, GW, D, 'url(#roofPat)', 'clickable-surface', 'ext_roof_top')}
+  <!-- Garage roof overhang top -->
+  ${topFaceRect(-OW, -OD, GH+OH, GW+OW*2, D+OD*2, hexLighten(topRoof,8), 'clickable-surface', 'ext_roof_top')}
+  <!-- Garage overhang front fascia -->
+  ${frontFaceRect(-OW, -OD, GH, GW+OW*2, OH, overhang, 'clickable-surface', 'ext_roof_over')}
+  <!-- Garage overhang side fascia -->
+  ${sideFaceRect(-OW, -OD, GH, D+OD*2, OH, hexDarken(overhang,12), 'clickable-surface', 'ext_roof_over')}
+
+  <!-- ── MAIN HOUSE BODY ── -->
+  <!-- Main front wall (lower section) -->
+  ${frontFaceRect(GW, 0, 0, W-GW, bandY, 'url(#concretePat)', 'clickable-surface', 'ext_wall_front')}
+
+  <!-- Upper cladding band — front -->
+  ${frontFaceRect(GW, 0, bandY, W-GW, bandH, upperBandF, 'clickable-surface', 'ext_upper_band')}
+
+  <!-- Main side wall (lower) -->
+  ${sideFaceRect(W, 0, 0, D, bandY, 'url(#sidePat)', 'clickable-surface', 'ext_wall_side')}
+
+  <!-- Upper cladding band — side -->
+  ${sideFaceRect(W, 0, bandY, D, bandH, upperBandS, 'clickable-surface', 'ext_upper_band')}
+
+  <!-- Second-story box on right (cantilevered look) -->
+  ${frontFaceRect(GW+10, 0, H, W-GW-10, S2h, upperBandF, 'clickable-surface', 'ext_upper_band')}
+  ${sideFaceRect(W, 0, H, D, S2h, upperBandS, 'clickable-surface', 'ext_upper_band')}
+  ${topFaceRect(GW+10, 0, H+S2h, W-GW-10, D, hexDarken(topRoof,8), 'clickable-surface', 'ext_roof_top')}
+  <!-- Cantilever underside shadow -->
+  ${frontFaceRect(GW+10,-0.1,H-1, W-GW-10, 4, hexDarken(upperBandF,30), '', null, 'opacity="0.4"')}
+
+  <!-- Main flat roof -->
+  ${topFaceRect(GW-OW, -OD, H, W-GW+OW*2, D+OD*2, 'url(#roofPat)', 'clickable-surface', 'ext_roof_top')}
+  <!-- Roof overhang front fascia -->
+  ${frontFaceRect(GW-OW, -OD, H-OH, W-GW+OW*2, OH, overhang, 'clickable-surface', 'ext_roof_over')}
+  <!-- Roof overhang side fascia -->
+  ${sideFaceRect(W+OW, -OD, H-OH, D+OD*2, OH, hexDarken(overhang,14), 'clickable-surface', 'ext_roof_over')}
+  <!-- Roof edge parapet -->
+  ${topFaceRect(GW-OW-1,-OD-1, H+S2h+OH, W-GW+OW*2+2, D+OD*2+2, hexDarken(topRoof,3), 'clickable-surface', 'ext_roof_top')}
+
+  <!-- ── FRONT DOOR AREA ── -->
+  <!-- Recessed porch slab -->
+  ${frontFaceRect(GW+18, -0.02, 0, 55, 4, hexDarken(pathC,10), '', null)}
+  <!-- Door -->
+  ${isoDoor(GW+20, -0.03, 4, 50, 80)}
+  <!-- Porch columns -->
+  ${isoColumn(GW+18, -0.04, 0, 7, 85)}
+  ${isoColumn(GW+62, -0.04, 0, 7, 85)}
+  <!-- Porch canopy top -->
+  ${topFaceRect(GW+14, -14, 84, 62, 14, hexDarken(topRoof,10), '', null)}
+  ${frontFaceRect(GW+14,-14,80, 62, 8, overhang, '', null)}
+
+  <!-- ── FRONT FACE WINDOWS ── -->
+  <!-- Large panoramic window strip (upper band area) -->
+  ${isoWinFront(GW+88, -0.01, bandY+6, 58, bandH-12)}
+  <!-- Lower left window pair -->
+  ${isoWinFront(GW+10, -0.01, bandY/2-14, 38, 34)}
+  ${isoWinFront(GW+10, -0.01, 8, 38, 28)}
+  <!-- Right of door window -->
+  ${isoWinFront(GW+82, -0.01, 14, 44, 32)}
+
+  <!-- ── SIDE FACE WINDOWS ── -->
+  <!-- Side wall large window -->
+  ${isoWinSide(W+0.01, 20, bandY-10, 55, 38)}
+  ${isoWinSide(W+0.01, 85, 20, 40, 55)}
+  <!-- Side small window high up -->
+  ${isoWinSide(W+0.01, 38, H+10, 30, 22)}
+
+  <!-- ── LANDSCAPE ── -->
+  </g>
+
+  <!-- Corner accent pillar (house corner, bottom) -->
+  ${poly([[GW,-0.05,0],[GW+4,-0.05,0],[GW+4,-0.05,H],[GW,-0.05,H]], hexDarken(columnC,10), '', null, 'opacity="0.7"')}
+
+  <!-- Ornamental trees -->
+  <!-- Left side tree (behind garage) -->
+  <g opacity="0.95">
+    <polygon points="${pt(-30,-20,0)} ${pt(-22,-20,0)} ${pt(-26,-20,80)}" fill="#4A6741"/>
+    <polygon points="${pt(-34,-16,0)} ${pt(-18,-16,0)} ${pt(-26,-16,90)}" fill="#5A7A52"/>
+    <polygon points="${pt(-36,-12,0)} ${pt(-16,-12,0)} ${pt(-26,-12,70)}" fill="#3D5C38"/>
+  </g>
+  <!-- Right background tree -->
+  <g opacity="0.88">
+    <polygon points="${pt(W+50,-20,0)} ${pt(W+58,-20,0)} ${pt(W+54,-20,70)}" fill="#4A6741"/>
+    <polygon points="${pt(W+46,-16,0)} ${pt(W+62,-16,0)} ${pt(W+54,-16,80)}" fill="#5A7A52"/>
+  </g>
+
+  <!-- Ornamental shrubs along front wall -->
+  ${[GW+5, GW+90, GW+130].map((rx,i) => `
+    <ellipse cx="${parseFloat(pt(rx,-8,12).split(',')[0])}" cy="${parseFloat(pt(rx,-8,12).split(',')[1])}" rx="${14+i*2}" ry="${8+i}" fill="${hexDarken(grassC,18)}" opacity="0.9"/>
+    <ellipse cx="${parseFloat(pt(rx,-8,16).split(',')[0])}" cy="${parseFloat(pt(rx,-8,16).split(',')[1])}" rx="${10+i}" ry="${6+i}" fill="${hexLighten(grassC,5)}" opacity="0.7"/>
+  `).join('')}
+
+  <!-- Step up to front door -->
+  <polygon points="
+    ${pt(GW+14,-8,0)} ${pt(GW+74,-8,0)} ${pt(GW+74,-4,0)} ${pt(GW+14,-4,0)}"
+    fill="${hexDarken(pathC,15)}" opacity="0.8"/>
+  <polygon points="
+    ${pt(GW+14,-4,0)} ${pt(GW+74,-4,0)} ${pt(GW+74,0,0)} ${pt(GW+14,0,0)}"
+    fill="${hexDarken(pathC,8)}" opacity="0.9"/>
+
+  <!-- Ground line / base shadow -->
+  <polygon points="${pt(-5,0,0)} ${pt(W+5,0,0)} ${pt(W+5,0,2)} ${pt(-5,0,2)}"
+    fill="rgba(0,0,0,0.18)"/>
+  <polygon points="${pt(W,0,0)} ${pt(W,D+5,0)} ${pt(W,D+5,2)} ${pt(W,0,2)}"
+    fill="rgba(0,0,0,0.22)"/>
+
+  <!-- Subtle foreground grass overlay -->
+  <polygon points="
+    ${pt(-60, D+80, 0)}
+    ${pt(W+80, D+80, 0)}
+    0,500 700,500"
+    fill="${hexDarken(grassC,8)}" opacity="0.55"/>
 
 </svg>`;
-}
-
-function windowEl(x, y, w, h, c) {
-  return `
-    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${c.ext_window}"/>
-      <rect x="${x+3}" y="${y+3}" width="${w-6}" height="${h-6}" rx="2" fill="#C8DFF0" opacity="0.7"/>
-      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="3"/>
-      <line x1="${x}" y1="${y+h/2}" x2="${x+w}" y2="${y+h/2}" stroke="${c.ext_window}" stroke-width="2.5"/>
-      <!-- Reflection -->
-      <rect x="${x+5}" y="${y+5}" width="12" height="18" rx="2" fill="white" opacity="0.25"/>
-    </g>`;
-}
-
-function gableWindowEl(x, y, w, h, c) {
-  return `
-    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${c.ext_window}"/>
-      <rect x="${x+2}" y="${y+2}" width="${w-4}" height="${h-4}" rx="1.5" fill="#C8DFF0" opacity="0.65"/>
-      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="2"/>
-      <line x1="${x}" y1="${y+h/2}" x2="${x+w}" y2="${y+h/2}" stroke="${c.ext_window}" stroke-width="1.5"/>
-    </g>`;
-}
-
-function smallWindowEl(x, y, w, h, c) {
-  return `
-    <g class="clickable-surface" data-id="ext_window" onclick="selectSurface('ext_window')">
-      <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="${c.ext_window}"/>
-      <rect x="${x+2}" y="${y+2}" width="${w-4}" height="${h-4}" rx="1" fill="#C8DFF0" opacity="0.6"/>
-      <line x1="${x+w/2}" y1="${y}" x2="${x+w/2}" y2="${y+h}" stroke="${c.ext_window}" stroke-width="2"/>
-    </g>`;
 }
 
 /* ═══════════════════════════════════════════
@@ -1011,4 +1243,3 @@ selectSurface(defaultSurface.id);
 </script>
 </body>
 </html>
-```
